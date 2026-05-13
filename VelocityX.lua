@@ -2972,74 +2972,57 @@ Library.ModeratorList = function(self)
     return ModList
 end
 
---// 1. Initialization (Make sure Library and Instances exist)
-local Library = Library or {} 
-local Instances = Instances or {} -- Ensure your framework's instance creator is available
+--// 0. Wait for Dependencies (Prevents "nil" errors if GitHub/External files are slow)
+local RunService = game:GetService("RunService")
+local HttpService = game:GetService("HttpService")
 
---// 2. The Constructor (Must be defined BEFORE the loop)
+local timeout = 0
+while not (ItemsModule and Targeting and flags) and timeout < 5 do
+    task.wait(0.1)
+    timeout = timeout + 0.1
+end
+
+--// 1. Initialization
+local Library = Library or {} 
+local Instances = Instances or {} 
+
+--// 2. The Constructor (Defined before the loop)
 Library.ArmorViewer = function(self, TargetPart)
     if not TargetPart then return end
 
-    local Viewer = {
-        Items = {}
-    }
-
+    local Viewer = { Items = {} }
     local Items = {}
-    local Layout
-
-    local MinWidth = 180
-    local MaxWidth = 9999
-    local BarHeight = 100 
-    local ItemSize = 60    
+    
+    -- Layout Config
+    local MinWidth, MaxWidth = 180, 9999
+    local BarHeight, ItemSize = 100, 60    
     local Gap = 4
-    local PadL, PadR = 5, 5
-    local PadT, PadB = 5, 5
+    local PadL, PadR, PadT, PadB = 5, 5, 5, 5
     local HeaderH = 20
-
-    local function Clamp(x, a, b)
-        if (x < a) then return a end
-        if (x > b) then return b end
-        return x
-    end
-
-    local function CountItems()
-        local n = 0
-        if not Items["RealHolder"] then return 0 end
-        for _, c in ipairs(Items["RealHolder"].Instance:GetChildren()) do
-            if c:IsA("Frame") then
-                n += 1
-            end
-        end
-        return n
-    end
 
     local function UpdateBarSize()
         if not Items["ArmorViewer"] then return end
-
-        local n = CountItems()
-        local contentW
-
-        if n <= 0 then
-            contentW = PadL + PadR
-        else
-            contentW = PadL + PadR + (n * ItemSize) + ((n - 1) * Gap)
+        local n = 0
+        for _, c in ipairs(Items["RealHolder"].Instance:GetChildren()) do
+            if c:IsA("Frame") then n += 1 end
         end
 
-        local outerW = contentW + 10
-        local w = Clamp(outerW, MinWidth, MaxWidth)
+        local contentW = (n <= 0) and (PadL + PadR) or (PadL + PadR + (n * ItemSize) + ((n - 1) * Gap))
+        local w = math.clamp(contentW + 10, MinWidth, MaxWidth)
 
         Items["ArmorViewer"].Instance.Size = UDim2.new(0, w, 0, BarHeight)
         Items["Holder"].Instance.Size = UDim2.new(1, -10, 1, -(HeaderH + 5))
-        Items["RealHolder"].Instance.CanvasSize = UDim2.new(0, math.max(0, contentW), 0, 0)
+        Items["RealHolder"].Instance.CanvasSize = UDim2.new(0, contentW, 0, 0)
     end
 
+    -- Create UI Structure
     do
         Items["ArmorViewer"] = Instances:Create("BillboardGui", {
             Parent = TargetPart,
             Name = "ArmorFloatingUI",
             Adornee = TargetPart,
             Size = UDim2.new(0, MinWidth, 0, BarHeight),
-            ExtentsOffset = Vector3.new(0, 3, 0), -- Floats 3 studs above head
+            ExtentsOffset = Vector3.new(0, 3, 0),
             AlwaysOnTop = true,                     
             ZIndexBehavior = Enum.ZIndexBehavior.Sibling
         })
@@ -3074,7 +3057,6 @@ Library.ArmorViewer = function(self, TargetPart)
 
         Items["RealHolder"] = Instances:Create("ScrollingFrame", {
             Parent = Items["Holder"].Instance,
-            Active = true,
             BorderSizePixel = 0,
             CanvasSize = UDim2.new(0, 0, 0, 0),
             ScrollBarThickness = 0, 
@@ -3084,7 +3066,7 @@ Library.ArmorViewer = function(self, TargetPart)
             ZIndex = 8
         })
 
-        Layout = Instances:Create("UIListLayout", {
+        Instances:Create("UIListLayout", {
             Parent = Items["RealHolder"].Instance,
             SortOrder = Enum.SortOrder.LayoutOrder,
             FillDirection = Enum.FillDirection.Horizontal,
@@ -3093,18 +3075,8 @@ Library.ArmorViewer = function(self, TargetPart)
             Padding = UDim.new(0, Gap)
         })
 
-        Instances:Create("UIPadding", {
-            Parent = Items["RealHolder"].Instance,
-            PaddingTop = UDim.new(0, PadT),
-            PaddingBottom = UDim.new(0, PadB),
-            PaddingRight = UDim.new(0, PadR),
-            PaddingLeft = UDim.new(0, PadL)
-        })
-
         Items["RealHolder"].Instance.ChildAdded:Connect(UpdateBarSize)
         Items["RealHolder"].Instance.ChildRemoved:Connect(UpdateBarSize)
-
-        UpdateBarSize()
     end
 
     function Viewer:Add(Name, Icon)
@@ -3146,9 +3118,7 @@ Library.ArmorViewer = function(self, TargetPart)
     end
 
     function Viewer:SetVisibility(Bool)
-        if Items["ArmorViewer"] then
-            Items["ArmorViewer"].Instance.Enabled = Bool
-        end
+        if Items["ArmorViewer"] then Items["ArmorViewer"].Instance.Enabled = Bool end
     end
 
     function Viewer:SetTitle(Name)
@@ -3162,7 +3132,7 @@ Library.ArmorViewer = function(self, TargetPart)
     return Viewer
 end
 
---// 3. The Logic Loop (Uses the constructor above)
+--// 3. The Logic Loop
 do
     local GunTable = {}
     local armorImageCache = {}
@@ -3172,9 +3142,9 @@ do
     local lastHideTime = 0
     local debounceTime = 0.15
     local gracePeriod = 0.3 
-    local ArmorViewerObj = nil -- Local reference to the current floating UI
+    local ArmorViewerObj = nil 
 
-    -- Build GunTable
+    -- Build GunTable Cache
     for _, gun in next, ItemsModule do
         if typeof(gun.Image) == 'table' then
             GunTable[gun.Name] = gun.Image
@@ -3192,20 +3162,13 @@ do
         for _, child in Character:GetChildren() do
             local armorNumber, skinName = child.Name:match('Armor_(%d+)%/?(.*)')
             if armorNumber then
-                local key = tonumber(armorNumber)
-                local item = ItemsModule[key]
+                local item = ItemsModule[tonumber(armorNumber)]
                 if item and item.Type == 'Armor' and not table.find(names, item.Name) then
                     skinName = skinName ~= '' and skinName or 'Default'
                     local image = type(item.Image) == 'table' and (item.Image[skinName] or item.Image.Default) or item.Image
                     local id = tonumber(string.match(image or '', '%d+')) or ''
-
                     table.insert(names, item.Name)
-                    table.insert(final, {
-                        Skin = skinName,
-                        Name = item.Name,
-                        Type = item.ArmorType,
-                        Image = id
-                    })
+                    table.insert(final, { Skin = skinName, Name = item.Name, Image = id })
                 end
             end
         end
@@ -3220,52 +3183,39 @@ do
 
         local character = Targeting.TargetCharacter
 
-        -- Visibility / Grace Period handling
+        -- Visibility / Grace Period
         if not character or character.Name:lower():find("soldier") or not flags.ArmorBarEnabled then
-            lastHideTime = lastHideTime == 0 and now or lastHideTime
+            lastHideTime = (lastHideTime == 0) and now or lastHideTime
             if now - lastHideTime > gracePeriod then
-                if ArmorViewerObj and ArmorViewerObj.SetVisibility then
-                    ArmorViewerObj:SetVisibility(false)
-                end
-                lastTarget = nil
-                lastArmorHash = ''
+                if ArmorViewerObj then ArmorViewerObj:SetVisibility(false) end
+                lastTarget, lastArmorHash = nil, ''
             end
             return
-        else
-            lastHideTime = 0
         end
+        lastHideTime = 0
 
-        -- Target Switching logic (This prevents the 'nil' error by creating the object)
+        -- Target Switching
         if character ~= lastTarget then
-            if ArmorViewerObj and ArmorViewerObj.Destroy then
-                ArmorViewerObj:Destroy()
-            end
-
+            if ArmorViewerObj then ArmorViewerObj:Destroy() end
             local head = character:FindFirstChild("Head") or character:FindFirstChild("HumanoidRootPart")
             if head then
-                -- Call the function from the Library table
                 ArmorViewerObj = Library:ArmorViewer(head)
-                lastTarget = character
-                lastArmorHash = ''
-            else
-                return 
-            end
+                lastTarget, lastArmorHash = character, ''
+            else return end
         end
 
-        if not ArmorViewerObj then return end -- Safety check
+        if not ArmorViewerObj then return end
 
         local armorData = GetArmor(character)
+        local armorHash = HttpService:JSONEncode(armorData)
 
-        -- Handle empty armor
         if #armorData == 0 then
             ArmorViewerObj:ClearAllItems()
-            ArmorViewerObj:SetTitle(`${character.Name} has no armor`)
+            ArmorViewerObj:SetTitle(character.Name .. " has no armor")
             lastArmorHash = ''
             return
         end
 
-        -- Update Content based on Hash
-        local armorHash = HttpService:JSONEncode(armorData)
         if armorHash == lastArmorHash then 
             ArmorViewerObj:SetVisibility(true)
             return 
@@ -3273,24 +3223,19 @@ do
         
         lastArmorHash = armorHash
         ArmorViewerObj:ClearAllItems()
-        ArmorViewerObj:SetTitle(`${character.Name}'s inventory`)
+        ArmorViewerObj:SetTitle(character.Name .. "'s inventory")
 
         for _, armor in ipairs(armorData) do
             local key = armor.Name .. "_" .. (armor.Skin or 'Default')
             if not armorImageCache[key] then
                 if armor.Image and tonumber(armor.Image) then
                     armorImageCache[key] = 'rbxassetid://' .. tostring(armor.Image)
-                elseif armor.Skin and GunTable[armor.Name] and GunTable[armor.Name][armor.Skin] then
-                    armorImageCache[key] = GunTable[armor.Name][armor.Skin]
-                elseif GunTable[armor.Name] and GunTable[armor.Name]['Default'] then
-                    armorImageCache[key] = GunTable[armor.Name]['Default']
                 else
-                    armorImageCache[key] = ''
+                    armorImageCache[key] = (GunTable[armor.Name] and (GunTable[armor.Name][armor.Skin] or GunTable[armor.Name].Default)) or ''
                 end
             end
             ArmorViewerObj:Add(armor.Name, armorImageCache[key])
         end
-        
         ArmorViewerObj:SetVisibility(true)
     end)
 end
