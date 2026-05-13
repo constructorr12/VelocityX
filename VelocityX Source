@@ -1811,11 +1811,13 @@ do
     local lastHideTime = 0
     local debounceTime = 0.15
     local gracePeriod = 0.3 
+    local ArmorViewerObj = nil -- Local reference for the active UI
 
+    -- Pre-process gun/armor images
     for _, gun in next, ItemsModule do
         if typeof(gun.Image) == 'table' then
             GunTable[gun.Name] = gun.Image
-            if not gun.Image.Default then GunTable[gun.Name].Default = '' end
+            if not gun.Image.Default then gun.Image.Default = '' end
         else
             GunTable[gun.Name] = { Default = gun.Image }
         end
@@ -1829,8 +1831,7 @@ do
         for _, child in Character:GetChildren() do
             local armorNumber, skinName = child.Name:match('Armor_(%d+)%/?(.*)')
             if armorNumber then
-                local key = tonumber(armorNumber)
-                local item = ItemsModule[key]
+                local item = ItemsModule[tonumber(armorNumber)]
                 if item and item.Type == 'Armor' and not table.find(names, item.Name) then
                     skinName = skinName ~= '' and skinName or 'Default'
                     local image = type(item.Image) == 'table' and (item.Image[skinName] or item.Image.Default) or item.Image
@@ -1857,30 +1858,32 @@ do
 
         local character = Targeting.TargetCharacter
 
-        -- Visibility / Grace Period handling
+        -- 1. Visibility & Grace Period Handling
         if not character or character.Name:lower():find("soldier") or not flags.ArmorBarEnabled then
             lastHideTime = lastHideTime == 0 and now or lastHideTime
             if now - lastHideTime > gracePeriod then
-                if ArmorViewer and ArmorViewer.SetVisibility then
-                    ArmorViewer:SetVisibility(false)
+                if ArmorViewerObj then
+                    ArmorViewerObj:SetVisibility(false)
                 end
                 lastTarget = nil
                 lastArmorHash = ''
             end
             return
         else
-            lastHideTime = 0
+            lastHideTime = 0 -- Reset timer if we have a valid target
         end
 
-        -- Target Switching logic
+        -- 2. Target Switching Logic
         if character ~= lastTarget then
-            if ArmorViewer and ArmorViewer.Destroy then
-                ArmorViewer:Destroy()
+            -- Clean up old floating UI
+            if ArmorViewerObj then
+                ArmorViewerObj:Destroy()
             end
 
             local head = character:FindFirstChild("Head") or character:FindFirstChild("HumanoidRootPart")
             if head then
-                ArmorViewer = Library:ArmorViewer(head)
+                -- Create new floating UI on the new target's head
+                ArmorViewerObj = Library:ArmorViewer(head)
                 lastTarget = character
                 lastArmorHash = ''
             else
@@ -1888,29 +1891,34 @@ do
             end
         end
 
+        -- 3. Data Extraction & Hash Comparison (Flicker-Free)
         local armorData = GetArmor(character)
+        local armorHash = HttpService:JSONEncode(armorData)
 
-        -- Handle empty armor
+        -- If target is valid but has no armor
         if #armorData == 0 then
-            ArmorViewer:ClearAllItems()
-            ArmorViewer:SetTitle(`${character.Name} has no armor`)
-            lastArmorHash = ''
+            ArmorViewerObj:ClearAllItems()
+            ArmorViewerObj:SetTitle(string.format("%s has no armor", character.Name))
+            lastArmorHash = armorHash
+            ArmorViewerObj:SetVisibility(true)
             return
         end
 
-        -- Update Content based on Hash
-        local armorHash = HttpService:JSONEncode(armorData)
+        -- Only update the UI icons if the armor set has actually changed
         if armorHash == lastArmorHash then 
-            ArmorViewer:SetVisibility(true)
+            ArmorViewerObj:SetVisibility(true)
             return 
         end
         
         lastArmorHash = armorHash
-        ArmorViewer:ClearAllItems()
-        ArmorViewer:SetTitle(`${character.Name}'s inventory`)
+        ArmorViewerObj:ClearAllItems()
+        ArmorViewerObj:SetTitle(string.format("%s's inventory", character.Name))
 
+        -- 4. Icon Generation
         for _, armor in ipairs(armorData) do
             local key = armor.Name .. "_" .. (armor.Skin or 'Default')
+            
+            -- Cache lookups for performance
             if not armorImageCache[key] then
                 if armor.Image and tonumber(armor.Image) then
                     armorImageCache[key] = 'rbxassetid://' .. tostring(armor.Image)
@@ -1922,10 +1930,11 @@ do
                     armorImageCache[key] = ''
                 end
             end
-            ArmorViewer:Add(armor.Name, armorImageCache[key])
+            
+            ArmorViewerObj:Add(armor.Name, armorImageCache[key])
         end
         
-        ArmorViewer:SetVisibility(true)
+        ArmorViewerObj:SetVisibility(true)
     end)
 end
   
