@@ -2972,6 +2972,11 @@ Library.ModeratorList = function(self)
     return ModList
 end
 
+--// 1. Initialization (Make sure Library and Instances exist)
+local Library = Library or {} 
+local Instances = Instances or {} -- Ensure your framework's instance creator is available
+
+--// 2. The Constructor (Must be defined BEFORE the loop)
 Library.ArmorViewer = function(self, TargetPart)
     if not TargetPart then return end
 
@@ -3155,6 +3160,139 @@ Library.ArmorViewer = function(self, TargetPart)
     end
 
     return Viewer
+end
+
+--// 3. The Logic Loop (Uses the constructor above)
+do
+    local GunTable = {}
+    local armorImageCache = {}
+    local lastTarget = nil
+    local lastArmorHash = ''
+    local lastUpdateTime = 0
+    local lastHideTime = 0
+    local debounceTime = 0.15
+    local gracePeriod = 0.3 
+    local ArmorViewerObj = nil -- Local reference to the current floating UI
+
+    -- Build GunTable
+    for _, gun in next, ItemsModule do
+        if typeof(gun.Image) == 'table' then
+            GunTable[gun.Name] = gun.Image
+            if not gun.Image.Default then GunTable[gun.Name].Default = '' end
+        else
+            GunTable[gun.Name] = { Default = gun.Image }
+        end
+    end
+
+    local GetArmor = LPH_NO_VIRTUALIZE(function(Character)
+        local final = {}
+        local names = {}
+        if not Character or type(Character) == 'string' then return {} end
+
+        for _, child in Character:GetChildren() do
+            local armorNumber, skinName = child.Name:match('Armor_(%d+)%/?(.*)')
+            if armorNumber then
+                local key = tonumber(armorNumber)
+                local item = ItemsModule[key]
+                if item and item.Type == 'Armor' and not table.find(names, item.Name) then
+                    skinName = skinName ~= '' and skinName or 'Default'
+                    local image = type(item.Image) == 'table' and (item.Image[skinName] or item.Image.Default) or item.Image
+                    local id = tonumber(string.match(image or '', '%d+')) or ''
+
+                    table.insert(names, item.Name)
+                    table.insert(final, {
+                        Skin = skinName,
+                        Name = item.Name,
+                        Type = item.ArmorType,
+                        Image = id
+                    })
+                end
+            end
+        end
+        table.sort(final, function(a,b) return a.Name < b.Name end)
+        return final
+    end)
+
+    RunService.RenderStepped:Connect(function()
+        local now = tick()
+        if now - lastUpdateTime < debounceTime then return end
+        lastUpdateTime = now
+
+        local character = Targeting.TargetCharacter
+
+        -- Visibility / Grace Period handling
+        if not character or character.Name:lower():find("soldier") or not flags.ArmorBarEnabled then
+            lastHideTime = lastHideTime == 0 and now or lastHideTime
+            if now - lastHideTime > gracePeriod then
+                if ArmorViewerObj and ArmorViewerObj.SetVisibility then
+                    ArmorViewerObj:SetVisibility(false)
+                end
+                lastTarget = nil
+                lastArmorHash = ''
+            end
+            return
+        else
+            lastHideTime = 0
+        end
+
+        -- Target Switching logic (This prevents the 'nil' error by creating the object)
+        if character ~= lastTarget then
+            if ArmorViewerObj and ArmorViewerObj.Destroy then
+                ArmorViewerObj:Destroy()
+            end
+
+            local head = character:FindFirstChild("Head") or character:FindFirstChild("HumanoidRootPart")
+            if head then
+                -- Call the function from the Library table
+                ArmorViewerObj = Library:ArmorViewer(head)
+                lastTarget = character
+                lastArmorHash = ''
+            else
+                return 
+            end
+        end
+
+        if not ArmorViewerObj then return end -- Safety check
+
+        local armorData = GetArmor(character)
+
+        -- Handle empty armor
+        if #armorData == 0 then
+            ArmorViewerObj:ClearAllItems()
+            ArmorViewerObj:SetTitle(`${character.Name} has no armor`)
+            lastArmorHash = ''
+            return
+        end
+
+        -- Update Content based on Hash
+        local armorHash = HttpService:JSONEncode(armorData)
+        if armorHash == lastArmorHash then 
+            ArmorViewerObj:SetVisibility(true)
+            return 
+        end
+        
+        lastArmorHash = armorHash
+        ArmorViewerObj:ClearAllItems()
+        ArmorViewerObj:SetTitle(`${character.Name}'s inventory`)
+
+        for _, armor in ipairs(armorData) do
+            local key = armor.Name .. "_" .. (armor.Skin or 'Default')
+            if not armorImageCache[key] then
+                if armor.Image and tonumber(armor.Image) then
+                    armorImageCache[key] = 'rbxassetid://' .. tostring(armor.Image)
+                elseif armor.Skin and GunTable[armor.Name] and GunTable[armor.Name][armor.Skin] then
+                    armorImageCache[key] = GunTable[armor.Name][armor.Skin]
+                elseif GunTable[armor.Name] and GunTable[armor.Name]['Default'] then
+                    armorImageCache[key] = GunTable[armor.Name]['Default']
+                else
+                    armorImageCache[key] = ''
+                end
+            end
+            ArmorViewerObj:Add(armor.Name, armorImageCache[key])
+        end
+        
+        ArmorViewerObj:SetVisibility(true)
+    end)
 end
 
     Library.Notification = function(self, Name, Duration)
