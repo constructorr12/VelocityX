@@ -2986,20 +2986,22 @@ end
 local Library = Library or {} 
 local Instances = Instances or {} 
 
---// 2. The Constructor (Defined before the loop)
+--// 2. The UI Constructor
+-- This part creates the physical BillboardGui on the target's head.
 Library.ArmorViewer = function(self, TargetPart)
     if not TargetPart then return end
 
     local Viewer = { Items = {} }
     local Items = {}
     
-    -- Layout Config
+    -- Layout Configuration
     local MinWidth, MaxWidth = 180, 9999
     local BarHeight, ItemSize = 100, 60    
     local Gap = 4
-    local PadL, PadR, PadT, PadB = 5, 5, 5, 5
+    local PadL, PadR = 5, 5
     local HeaderH = 20
 
+    -- Adjusts the width of the bar based on how many armor pieces are found
     local function UpdateBarSize()
         if not Items["ArmorViewer"] then return end
         local n = 0
@@ -3015,7 +3017,7 @@ Library.ArmorViewer = function(self, TargetPart)
         Items["RealHolder"].Instance.CanvasSize = UDim2.new(0, contentW, 0, 0)
     end
 
-    -- Create UI Structure
+    -- UI Creation
     do
         Items["ArmorViewer"] = Instances:Create("BillboardGui", {
             Parent = TargetPart,
@@ -3144,7 +3146,7 @@ do
     local gracePeriod = 0.3 
     local ArmorViewerObj = nil 
 
-    -- Build GunTable Cache
+    -- Pre-cache images from the ItemsModule
     for _, gun in next, ItemsModule do
         if typeof(gun.Image) == 'table' then
             GunTable[gun.Name] = gun.Image
@@ -3154,6 +3156,7 @@ do
         end
     end
 
+    -- Scans for children named "Armor_ID/Skin"
     local GetArmor = LPH_NO_VIRTUALIZE(function(Character)
         local final = {}
         local names = {}
@@ -3183,7 +3186,7 @@ do
 
         local character = Targeting.TargetCharacter
 
-        -- Visibility / Grace Period
+        -- Handle Visibility and Grace Period
         if not character or character.Name:lower():find("soldier") or not flags.ArmorBarEnabled then
             lastHideTime = (lastHideTime == 0) and now or lastHideTime
             if now - lastHideTime > gracePeriod then
@@ -3194,7 +3197,7 @@ do
         end
         lastHideTime = 0
 
-        -- Target Switching
+        -- Handle Target Switching
         if character ~= lastTarget then
             if ArmorViewerObj then ArmorViewerObj:Destroy() end
             local head = character:FindFirstChild("Head") or character:FindFirstChild("HumanoidRootPart")
@@ -3209,6 +3212,7 @@ do
         local armorData = GetArmor(character)
         local armorHash = HttpService:JSONEncode(armorData)
 
+        -- If target has no armor
         if #armorData == 0 then
             ArmorViewerObj:ClearAllItems()
             ArmorViewerObj:SetTitle(character.Name .. " has no armor")
@@ -3216,6 +3220,7 @@ do
             return
         end
 
+        -- Only update UI if the hash changed (prevents flickering)
         if armorHash == lastArmorHash then 
             ArmorViewerObj:SetVisibility(true)
             return 
