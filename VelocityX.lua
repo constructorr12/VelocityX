@@ -2972,132 +2972,187 @@ Library.ModeratorList = function(self)
     return ModList
 end
 
---// 0. Wait for Dependencies (Prevents "nil" errors if GitHub/External files are slow)
-local RunService = game:GetService("RunService")
-local HttpService = game:GetService("HttpService")
+Library.ArmorViewer = function(self)
+    local Viewer = {
+        Items = {}
+    }
 
-local timeout = 0
-while not (ItemsModule and Targeting and flags) and timeout < 5 do
-    task.wait(0.1)
-    timeout = timeout + 0.1
-end
-
---// 1. Initialization
-local Library = Library or {} 
-local Instances = Instances or {} 
-
---// 2. The UI Constructor
--- This part creates the physical BillboardGui on the target's head.
-Library.ArmorViewer = function(self, TargetPart)
-    if not TargetPart then return end
-
-    local Viewer = { Items = {} }
     local Items = {}
-    
-    -- Layout Configuration
-    local MinWidth, MaxWidth = 180, 9999
-    local BarHeight, ItemSize = 100, 60    
-    local Gap = 4
-    local PadL, PadR = 5, 5
-    local HeaderH = 20
+    local Layout
 
-    -- Adjusts the width of the bar based on how many armor pieces are found
-    local function UpdateBarSize()
-        if not Items["ArmorViewer"] then return end
-        local n = 0
-        for _, c in ipairs(Items["RealHolder"].Instance:GetChildren()) do
-            if c:IsA("Frame") then n += 1 end
-        end
+    local MinWidth = 180
+    local MaxWidth = 9999
+    local BarHeight = 120
+    local ItemSize = 82
+    local Gap = 8
+    local PadL, PadR = 8, 8
+    local PadT, PadB = 6, 10
+    local HeaderH = 32
 
-        local contentW = (n <= 0) and (PadL + PadR) or (PadL + PadR + (n * ItemSize) + ((n - 1) * Gap))
-        local w = math.clamp(contentW + 10, MinWidth, MaxWidth)
-
-        Items["ArmorViewer"].Instance.Size = UDim2.new(0, w, 0, BarHeight)
-        Items["Holder"].Instance.Size = UDim2.new(1, -10, 1, -(HeaderH + 5))
-        Items["RealHolder"].Instance.CanvasSize = UDim2.new(0, contentW, 0, 0)
+    local function Clamp(x, a, b)
+        if (x < a) then return a end
+        if (x > b) then return b end
+        return x
     end
 
-    -- UI Creation
+    local function CountItems()
+        local n = 0
+        for _, c in ipairs(Items["RealHolder"].Instance:GetChildren()) do
+            if c:IsA("Frame") then
+                n += 1
+            end
+        end
+        return n
+    end
+
+    local function UpdateBarSize()
+        if not Items["ArmorViewer"] then
+            return
+        end
+
+        local n = CountItems()
+        local contentW
+
+        if n <= 0 then
+            contentW = PadL + PadR
+        else
+            contentW = PadL + PadR + (n * ItemSize) + ((n - 1) * Gap)
+        end
+
+        local outerW = contentW + 16
+        local w = Clamp(outerW, MinWidth, MaxWidth)
+
+        Items["ArmorViewer"].Instance.Size = UDim2New(0, w, 0, BarHeight)
+        Items["Holder"].Instance.Size = UDim2New(1, -16, 1, -(HeaderH + 8))
+        Items["RealHolder"].Instance.Size = UDim2New(1, 0, 1, 0)
+        Items["RealHolder"].Instance.CanvasSize = UDim2New(0, math.max(0, contentW), 0, 0)
+    end
+
     do
-        Items["ArmorViewer"] = Instances:Create("BillboardGui", {
-            Parent = TargetPart,
-            Name = "ArmorFloatingUI",
-            Adornee = TargetPart,
-            Size = UDim2.new(0, MinWidth, 0, BarHeight),
-            ExtentsOffset = Vector3.new(0, 3, 0),
-            AlwaysOnTop = true,                     
-            ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+        Items["ArmorViewer"] = Instances:Create("Frame", {
+            Parent = Library.Holder.Instance,
+            Name = "\0",
+            Position = UDim2New(0, 0, 0.5, 0),
+            BorderColor3 = FromRGB(0, 0, 0),
+            Size = UDim2New(0, MinWidth, 0, BarHeight),
+            BorderSizePixel = 0,
+            ZIndex = 8,
+            BackgroundTransparency = 1,
+            BackgroundColor3 = FromRGB(24, 28, 36),
+            AnchorPoint = Vector2New(0, 0.5)
         })
 
-        Items["MainBG"] = Instances:Create("Frame", {
-            Parent = Items["ArmorViewer"].Instance,
-            Size = UDim2.new(1, 0, 1, 0),
-            BackgroundColor3 = Color3.fromRGB(24, 28, 36),
-            BackgroundTransparency = 0.4, 
-            BorderSizePixel = 0
-        })
+        Items["ArmorViewer"]:MakeDraggable()
 
         Items["Title"] = Instances:Create("TextLabel", {
-            Parent = Items["MainBG"].Instance,
-            Font = Enum.Font.Code,
-            TextColor3 = Color3.fromRGB(255, 255, 255),
-            Text = "ARMOR",
-            Size = UDim2.new(1, 0, 0, HeaderH),
-            Position = UDim2.new(0, 0, 0, 2),
+            Parent = Items["ArmorViewer"].Instance,
+            Name = "\0",
+            FontFace = Library.Font,
+            TextColor3 = FromRGB(255, 255, 255),
+            BorderColor3 = FromRGB(0, 0, 0),
+            Text = "Armor",
+            Size = UDim2New(1, -16, 0, 15),
+            Position = UDim2New(0, 8, 0, 8),
             BackgroundTransparency = 1,
-            TextSize = 12,
-            ZIndex = 9
-        })
+            TextTransparency = 0,
+            Visible = true,
+            TextXAlignment = Enum.TextXAlignment.Left,
+            BorderSizePixel = 0,
+            ZIndex = 8,
+            AutomaticSize = Enum.AutomaticSize.None,
+            TextSize = 14,
+            BackgroundColor3 = FromRGB(255, 255, 255)
+        })  Items["Title"]:AddToTheme({TextColor3 = "Text"})
 
         Items["Holder"] = Instances:Create("Frame", {
-            Parent = Items["MainBG"].Instance,
+            Parent = Items["ArmorViewer"].Instance,
+            Name = "\0",
             BackgroundTransparency = 1,
-            Position = UDim2.new(0, 5, 0, HeaderH),
-            Size = UDim2.new(1, -10, 1, -(HeaderH + 5)),
-            ZIndex = 8
+            Position = UDim2New(0, 8, 0, HeaderH),
+            BorderColor3 = FromRGB(0, 0, 0),
+            Size = UDim2New(1, -16, 1, -(HeaderH + 8)),
+            BorderSizePixel = 0,
+            ZIndex = 8,
+            BackgroundColor3 = FromRGB(255, 255, 255)
         })
 
         Items["RealHolder"] = Instances:Create("ScrollingFrame", {
             Parent = Items["Holder"].Instance,
+            Name = "\0",
+            Active = true,
+            AutomaticCanvasSize = Enum.AutomaticSize.None,
             BorderSizePixel = 0,
-            CanvasSize = UDim2.new(0, 0, 0, 0),
-            ScrollBarThickness = 0, 
-            Size = UDim2.new(1, 0, 1, 0),
+            CanvasSize = UDim2New(0, 0, 0, 0),
+            ScrollBarImageColor3 = FromRGB(46, 52, 61),
+            MidImage = "rbxassetid://93024691806056",
+            BorderColor3 = FromRGB(0, 0, 0),
+            ScrollBarThickness = 3,
+            Size = UDim2New(1, 0, 1, 0),
             BackgroundTransparency = 1,
-            ScrollingDirection = Enum.ScrollingDirection.X,
-            ZIndex = 8
-        })
+            Position = UDim2New(0, 0, 0, 0),
+            ZIndex = 8,
+            BottomImage = "rbxassetid://93024691806056",
+            TopImage = "rbxassetid://93024691806056",
+            BackgroundColor3 = FromRGB(255, 255, 255),
+            ScrollingDirection = Enum.ScrollingDirection.X
+        })  Items["RealHolder"]:AddToTheme({ScrollBarImageColor3 = "Border"})
 
-        Instances:Create("UIListLayout", {
+        Layout = Instances:Create("UIListLayout", {
             Parent = Items["RealHolder"].Instance,
+            Name = "\0",
             SortOrder = Enum.SortOrder.LayoutOrder,
             FillDirection = Enum.FillDirection.Horizontal,
-            HorizontalAlignment = Enum.HorizontalAlignment.Center, 
+            HorizontalAlignment = Enum.HorizontalAlignment.Left,
             VerticalAlignment = Enum.VerticalAlignment.Center,
-            Padding = UDim.new(0, Gap)
+            Padding = UDimNew(0, Gap)
         })
 
-        Items["RealHolder"].Instance.ChildAdded:Connect(UpdateBarSize)
-        Items["RealHolder"].Instance.ChildRemoved:Connect(UpdateBarSize)
+        Instances:Create("UIPadding", {
+            Parent = Items["RealHolder"].Instance,
+            Name = "\0",
+            PaddingTop = UDimNew(0, PadT),
+            PaddingBottom = UDimNew(0, PadB),
+            PaddingRight = UDimNew(0, PadR),
+            PaddingLeft = UDimNew(0, PadL)
+        })
+
+        Items["RealHolder"].Instance.ChildAdded:Connect(function()
+            UpdateBarSize()
+        end)
+
+        Items["RealHolder"].Instance.ChildRemoved:Connect(function()
+            UpdateBarSize()
+        end)
+
+        UpdateBarSize()
     end
 
     function Viewer:Add(Name, Icon)
         local NewItemTable = {}
+
         local NewItem = Instances:Create("Frame", {
             Parent = Items["RealHolder"].Instance,
+            Name = "\0",
             BackgroundTransparency = 1,
-            Size = UDim2.new(0, ItemSize, 0, ItemSize),
-            ZIndex = 9
+            BorderColor3 = FromRGB(0, 0, 0),
+            ZIndex = 8,
+            Size = UDim2New(0, ItemSize, 0, ItemSize),
+            BorderSizePixel = 0,
+            BackgroundColor3 = FromRGB(255, 255, 255)
         })
 
         Instances:Create("ImageLabel", {
             Parent = NewItem.Instance,
-            AnchorPoint = Vector2.new(0.5, 0.5),
-            ZIndex = 10,
+            Name = "\0",
+            BorderColor3 = FromRGB(0, 0, 0),
+            AnchorPoint = Vector2New(0.5, 0.5),
+            ZIndex = 8,
             Image = Icon,
             BackgroundTransparency = 1,
-            Position = UDim2.new(0.5, 0, 0.5, 0),
-            Size = UDim2.new(0, ItemSize - 10, 0, ItemSize - 10)
+            Position = UDim2New(0.5, 0, 0.5, 0),
+            Size = UDim2New(0, 50, 0, 50),
+            BorderSizePixel = 0,
+            BackgroundColor3 = FromRGB(255, 255, 255)
         })
 
         function NewItemTable:Remove()
@@ -3112,137 +3167,71 @@ Library.ArmorViewer = function(self, TargetPart)
     end
 
     function Viewer:ClearAllItems()
-        for Name, Value in pairs(Viewer.Items) do
-            if Value and Value.Remove then Value:Remove() end
+        for _, Value in Viewer.Items do
+            if not Value or not Value.Remove then
+                continue
+            end
+            Value:Remove()
         end
-        Viewer.Items = {}
         UpdateBarSize()
     end
 
     function Viewer:SetVisibility(Bool)
-        if Items["ArmorViewer"] then Items["ArmorViewer"].Instance.Enabled = Bool end
+        Items["ArmorViewer"].Instance.Visible = Bool
     end
 
     function Viewer:SetTitle(Name)
-        if Items["Title"] then Items["Title"].Instance.Text = tostring(Name) end
+        if Items["Title"] and Items["Title"].Instance then
+            Items["Title"].Instance.Text = tostring(Name or "")
+        end
     end
 
-    function Viewer:Destroy()
-        if Items["ArmorViewer"] then Items["ArmorViewer"]:Clean() end
+    function Viewer:SetText(Name)
+        Viewer:SetTitle(Name)
+    end
+
+    function Viewer:GetPosition()
+        local p = Items["ArmorViewer"].Instance.Position
+
+        return {
+            XScale = p.X.Scale,
+            XOffset = p.X.Offset,
+            YScale = p.Y.Scale,
+            YOffset = p.Y.Offset
+        }
+    end
+
+    function Viewer:SetPosition(Position)
+        if not Position then
+            return
+        end
+
+        if typeof(Position) == "UDim2" then
+            Items["ArmorViewer"].Instance.Position = Position
+            return
+        end
+
+        Items["ArmorViewer"].Instance.Position = UDim2.new(
+            Position.XScale or 0,
+            Position.XOffset or 0,
+            Position.YScale or 0,
+            Position.YOffset or 0
+        )
+    end
+
+    function Viewer:SetSizeLimits(Min, Max)
+        MinWidth = Min or MinWidth
+        MaxWidth = Max or MaxWidth
+        UpdateBarSize()
+    end
+
+    function Viewer:SetBarHeight(H)
+        BarHeight = H or BarHeight
+        Items["ArmorViewer"].Instance.Size = UDim2New(0, Items["ArmorViewer"].Instance.Size.X.Offset, 0, BarHeight)
+        UpdateBarSize()
     end
 
     return Viewer
-end
-
---// 3. The Logic Loop
-do
-    local GunTable = {}
-    local armorImageCache = {}
-    local lastTarget = nil
-    local lastArmorHash = ''
-    local lastUpdateTime = 0
-    local lastHideTime = 0
-    local debounceTime = 0.15
-    local gracePeriod = 0.3 
-    local ArmorViewerObj = nil 
-
-    -- Pre-cache images from the ItemsModule
-    for _, gun in next, ItemsModule do
-        if typeof(gun.Image) == 'table' then
-            GunTable[gun.Name] = gun.Image
-            if not gun.Image.Default then GunTable[gun.Name].Default = '' end
-        else
-            GunTable[gun.Name] = { Default = gun.Image }
-        end
-    end
-
-    -- Scans for children named "Armor_ID/Skin"
-    local GetArmor = LPH_NO_VIRTUALIZE(function(Character)
-        local final = {}
-        local names = {}
-        if not Character or type(Character) == 'string' then return {} end
-
-        for _, child in Character:GetChildren() do
-            local armorNumber, skinName = child.Name:match('Armor_(%d+)%/?(.*)')
-            if armorNumber then
-                local item = ItemsModule[tonumber(armorNumber)]
-                if item and item.Type == 'Armor' and not table.find(names, item.Name) then
-                    skinName = skinName ~= '' and skinName or 'Default'
-                    local image = type(item.Image) == 'table' and (item.Image[skinName] or item.Image.Default) or item.Image
-                    local id = tonumber(string.match(image or '', '%d+')) or ''
-                    table.insert(names, item.Name)
-                    table.insert(final, { Skin = skinName, Name = item.Name, Image = id })
-                end
-            end
-        end
-        table.sort(final, function(a,b) return a.Name < b.Name end)
-        return final
-    end)
-
-    RunService.RenderStepped:Connect(function()
-        local now = tick()
-        if now - lastUpdateTime < debounceTime then return end
-        lastUpdateTime = now
-
-        local character = Targeting.TargetCharacter
-
-        -- Handle Visibility and Grace Period
-        if not character or character.Name:lower():find("soldier") or not flags.ArmorBarEnabled then
-            lastHideTime = (lastHideTime == 0) and now or lastHideTime
-            if now - lastHideTime > gracePeriod then
-                if ArmorViewerObj then ArmorViewerObj:SetVisibility(false) end
-                lastTarget, lastArmorHash = nil, ''
-            end
-            return
-        end
-        lastHideTime = 0
-
-        -- Handle Target Switching
-        if character ~= lastTarget then
-            if ArmorViewerObj then ArmorViewerObj:Destroy() end
-            local head = character:FindFirstChild("Head") or character:FindFirstChild("HumanoidRootPart")
-            if head then
-                ArmorViewerObj = Library:ArmorViewer(head)
-                lastTarget, lastArmorHash = character, ''
-            else return end
-        end
-
-        if not ArmorViewerObj then return end
-
-        local armorData = GetArmor(character)
-        local armorHash = HttpService:JSONEncode(armorData)
-
-        -- If target has no armor
-        if #armorData == 0 then
-            ArmorViewerObj:ClearAllItems()
-            ArmorViewerObj:SetTitle(character.Name .. " has no armor")
-            lastArmorHash = ''
-            return
-        end
-
-        -- Only update UI if the hash changed (prevents flickering)
-        if armorHash == lastArmorHash then 
-            ArmorViewerObj:SetVisibility(true)
-            return 
-        end
-        
-        lastArmorHash = armorHash
-        ArmorViewerObj:ClearAllItems()
-        ArmorViewerObj:SetTitle(character.Name .. "'s inventory")
-
-        for _, armor in ipairs(armorData) do
-            local key = armor.Name .. "_" .. (armor.Skin or 'Default')
-            if not armorImageCache[key] then
-                if armor.Image and tonumber(armor.Image) then
-                    armorImageCache[key] = 'rbxassetid://' .. tostring(armor.Image)
-                else
-                    armorImageCache[key] = (GunTable[armor.Name] and (GunTable[armor.Name][armor.Skin] or GunTable[armor.Name].Default)) or ''
-                end
-            end
-            ArmorViewerObj:Add(armor.Name, armorImageCache[key])
-        end
-        ArmorViewerObj:SetVisibility(true)
-    end)
 end
 
     Library.Notification = function(self, Name, Duration)
@@ -6365,17 +6354,3 @@ Library.TargetHud = function(self)
 end
 
 return Library
-
-
-
-
-
-
-
-
-
-
-
-
-
-
