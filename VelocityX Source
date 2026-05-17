@@ -1801,7 +1801,7 @@ Library.Targeting = Targeting
           end))
       end
   
---// Armor Bar Logic (Floating + Flicker-Free)
+--// Armor Bar (Flicker-Free + Grace Period + Correct Names)
 do
     local GunTable = {}
     local armorImageCache = {}
@@ -1810,19 +1810,22 @@ do
     local lastUpdateTime = 0
     local lastHideTime = 0
     local debounceTime = 0.15
-    local gracePeriod = 0.3 
-    local ArmorViewerObj = nil -- Local reference for the active UI
+    local gracePeriod = 0.3 -- UI stays visible for 0.3s after losing target
+    local previousArmorImages = {}
 
-    -- Pre-process gun/armor images
+    -- Build GunTable once
     for _, gun in next, ItemsModule do
         if typeof(gun.Image) == 'table' then
             GunTable[gun.Name] = gun.Image
-            if not gun.Image.Default then gun.Image.Default = '' end
+            if not gun.Image.Default then
+                GunTable[gun.Name].Default = ''
+            end
         else
             GunTable[gun.Name] = { Default = gun.Image }
         end
     end
 
+    -- Safe armor extractor
     local GetArmor = LPH_NO_VIRTUALIZE(function(Character)
         local final = {}
         local names = {}
@@ -1831,7 +1834,8 @@ do
         for _, child in Character:GetChildren() do
             local armorNumber, skinName = child.Name:match('Armor_(%d+)%/?(.*)')
             if armorNumber then
-                local item = ItemsModule[tonumber(armorNumber)]
+                local key = tonumber(armorNumber)
+                local item = ItemsModule[key]
                 if item and item.Type == 'Armor' and not table.find(names, item.Name) then
                     skinName = skinName ~= '' and skinName or 'Default'
                     local image = type(item.Image) == 'table' and (item.Image[skinName] or item.Image.Default) or item.Image
@@ -1847,10 +1851,12 @@ do
                 end
             end
         end
+
         table.sort(final, function(a,b) return a.Name < b.Name end)
         return final
     end)
 
+    -- Main RenderStepped loop
     RunService.RenderStepped:Connect(function()
         local now = tick()
         if now - lastUpdateTime < debounceTime then return end
@@ -1858,68 +1864,72 @@ do
 
         local character = Targeting.TargetCharacter
 
--- 1. Visibility & Grace Period Handling (Source Style)
-    if not character or character.Name:lower():find("soldier") or not flags.ArmorBarEnabled then
-        lastHideTime = (lastHideTime == 0) and now or lastHideTime
-        if now - lastHideTime > gracePeriod then
-            if ArmorViewerObj then 
-                ArmorViewerObj:SetVisibility(false) 
+        -- No target or ignore soldiers
+        if not character or character.Name:lower():find("soldier") then
+            lastHideTime = lastHideTime == 0 and now or lastHideTime
+            if now - lastHideTime > gracePeriod then
+                ArmorViewer:SetVisibility(false)
+                lastTarget = nil
+                lastArmorHash = ''
+                previousArmorImages = {}
             end
-            lastTarget, lastArmorHash = nil, ""
+            return
+        else
+            ArmorViewer:SetVisibility(flags.ArmorBarEnabled)
+            lastHideTime = 0 -- reset grace timer
         end
-        return
-    end
-    lastHideTime = 0 -- Reset timer if we have a valid target
 
-    -- 2. Target Switching Logic (Source Style)
-    if character ~= lastTarget then
-        if ArmorViewerObj then 
-            ArmorViewerObj:Destroy() 
-        end
-        
-        local head = character:FindFirstChild("Head") or character:FindFirstChild("HumanoidRootPart")
-        if head then
-            ArmorViewerObj = Library:ArmorViewer(head)
+        -- Reset if target switched
+        if character ~= lastTarget then
             lastTarget = character
-            lastArmorHash = "" -- Force refresh on new target
-        else 
-            return 
+            lastArmorHash = ''
+            previousArmorImages = {}
+            ArmorViewer:ClearAllItems()
         end
-    end
 
-    -- 3. Data Extraction & Hash Comparison (Source Style)
-    local armorData = GetArmor(character)
-    local armorHash = HttpService:JSONEncode(armorData)
+        if not flags.ArmorBarEnabled then return end
 
-    -- Handle No Armor Case
-    if #armorData == 0 then
-        ArmorViewerObj:ClearAllItems()
-        ArmorViewerObj:SetTitle(character.Name .. " has no armor")
-        lastArmorHash = ""
-        ArmorViewerObj:SetVisibility(true)
-        return
-    end
+        local armorData = GetArmor(character)
 
-    -- 4. Flicker-Free Update (Only if armor set has actually changed)
-    if armorHash ~= lastArmorHash then 
+        -- Always update title
+        if #armorData == 0 then
+            ArmorViewer:ClearAllItems()
+            ArmorViewer:SetTitle(`${character.Name} has no armor`)
+            lastArmorHash = ''
+            previousArmorImages = {}
+            return
+        end
+
+        -- Encode armor for change detection
+        local armorHash = HttpService:JSONEncode(armorData)
+        if armorHash == lastArmorHash then return end
         lastArmorHash = armorHash
-        ArmorViewerObj:ClearAllItems()
-        ArmorViewerObj:SetTitle(character.Name .. "'s inventory")
+
+        ArmorViewer:ClearAllItems()
+        ArmorViewer:SetTitle(`${character.Name}'s inventory`)
 
         for _, armor in ipairs(armorData) do
-            -- Cache lookups for performance based on Source Logic
-            local key = armor.Name .. "_" .. (armor.Skin or "Default")
+            local key = armor.Name .. "_" .. (armor.Skin or 'Default')
             if not armorImageCache[key] then
-                local iconId = (tostring(armor.Image) ~= "") and ("rbxassetid://" .. armor.Image) or ""
-                armorImageCache[key] = iconId
+                if armor.Image and tonumber(armor.Image) then
+                    armorImageCache[key] = 'rbxassetid://' .. tostring(armor.Image)
+                elseif armor.Skin and GunTable[armor.Name] and GunTable[armor.Name][armor.Skin] then
+                    armorImageCache[key] = GunTable[armor.Name][armor.Skin]
+                elseif GunTable[armor.Name] and GunTable[armor.Name]['Default'] then
+                    armorImageCache[key] = GunTable[armor.Name]['Default']
+                else
+                    armorImageCache[key] = ''
+                end
             end
-            
-            ArmorViewerObj:Add(armor.Name, armorImageCache[key])
+
+            -- Only add if changed
+            if previousArmorImages[key] ~= armorImageCache[key] then
+                ArmorViewer:Add(armor.Name, armorImageCache[key])
+                previousArmorImages[key] = armorImageCache[key]
+            end
         end
-    end
-    
-    ArmorViewerObj:SetVisibility(true)
-end)
+    end)
+end
   
       --// Misc ESP
       do
