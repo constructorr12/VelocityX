@@ -2786,7 +2786,7 @@ Library.ModeratorList = function(self)
     local StartTime = os.time()
 
     local Items = {} do
-        -- Main Container Window
+        -- Main Container Window (Staff List)
         Items["ModList"] = Instances:Create("Frame", {
             Parent = Library.Holder.Instance,
             Name = "__ModeratorList",
@@ -2975,16 +2975,51 @@ Library.ModeratorList = function(self)
         end
     end)
 
+    -- Function to sync panel positions side-by-side
+    local function syncUserPanelPosition()
+        local mainPos = Items["ModList"].Instance.Position
+        Items["UserPanel"].Instance.Position = UDim2.new(mainPos.X.Scale, mainPos.X.Offset - 370, mainPos.Y.Scale, mainPos.Y.Offset)
+    end
+
     -- Toggle operation connection
     Items["ProfileBtn"].Instance.MouseButton1Click:Connect(function()
         Items["UserPanel"].Instance.Visible = not Items["UserPanel"].Instance.Visible
         if Items["UserPanel"].Instance.Visible then
-            local mainPos = Items["ModList"].Instance.Position
-            Items["UserPanel"].Instance.Position = UDim2.new(mainPos.X.Scale, mainPos.X.Offset - 370, mainPos.Y.Scale, mainPos.Y.Offset)
+            syncUserPanelPosition()
         end
     end)
 
-    -- API Functions
+    -- Automatically sync user panel layout when main panel is dragged
+    Items["ModList"].Instance:GetPropertyChangedSignal("Position"):Connect(function()
+        if Items["UserPanel"].Instance.Visible then
+            syncUserPanelPosition()
+        end
+    end)
+
+    --// ADDED CONFIGURATION SUPPORT METHODS
+    function ModList:GetPosition()
+        local p = Items["ModList"].Instance.Position
+        return {
+            XScale = p.X.Scale,
+            XOffset = p.X.Offset,
+            YScale = p.Y.Scale,
+            YOffset = p.Y.Offset
+        }
+    end
+
+    function ModList:SetPosition(Pos)
+        if not Pos then return end
+        Items["ModList"].Instance.Position = UDim2.new(
+            Pos.XScale or 0,
+            Pos.XOffset or 0,
+            Pos.YScale or 0,
+            Pos.YOffset or 0
+        )
+        -- Sync user sub-panel coordinate mapping automatically
+        syncUserPanelPosition()
+    end
+
+    --// API CONTROLLERS
     function ModList:SetVisibility(Bool)
         Items["ModList"].Instance.Visible = Bool
         if not Bool then Items["UserPanel"].Instance.Visible = false end
