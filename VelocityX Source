@@ -1333,12 +1333,15 @@ local hp = math.clamp(hum.Health / hum.MaxHealth, 0, 1)
 
                   e.HealthFill.Size = UDim2.fromScale(1, hp)
 
-                  -- position HP text perfectly beside health bar
-                  e.HP.AnchorPoint = Vector2.new(0, 0)
-                  e.HP.Size = UDim2.fromOffset(40, 14)
-                  e.HP.Position = UDim2.fromOffset(reservedLeft - barW - gap + 12, 2)
-                  e.HP.TextXAlignment = Enum.TextXAlignment.Left
-                  e.HP.TextYAlignment = Enum.TextYAlignment.Top
+                  -- THE AUTO-SCALING DISTANCE FIX
+                  e.HP.AnchorPoint = Vector2.new(1, 0.5) -- Anchors from middle-right of the text
+                  e.HP.Size = UDim2.fromScale(2.5, 0.2) -- Size scales relatively with the ESP box size
+
+                  -- Positions it perfectly on the left side, exactly halfway (0.5) down the bar
+                  e.HP.Position = UDim2.new(0, reservedLeft - barW - gap - 2, 0.5, 0)
+                  
+                  e.HP.TextXAlignment = Enum.TextXAlignment.Right -- Aligns text cleanly against the bar
+                  e.HP.TextYAlignment = Enum.TextYAlignment.Center
   
                   e.HealthGradient.Color = ColorSequence.new({
                       ColorSequenceKeypoint.new(0, flags[class .. 'HealthColor1'].Color),
