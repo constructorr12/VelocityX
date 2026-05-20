@@ -1326,15 +1326,19 @@ Library.Targeting = Targeting
                   e.HealthFillHolder.Position = UDim2.fromOffset(0,0)
                   e.HealthFillHolder.Size = UDim2.fromScale(1,1)
   
-                  local hp = math.clamp(hum.Health / hum.MaxHealth, 0, 1)
+local hp = math.clamp(hum.Health / hum.MaxHealth, 0, 1)
 
                   e.HP.Text = math.floor(hum.Health)
                   e.HP.TextColor3 = Color3.fromRGB(0,255,0)
 
                   e.HealthFill.Size = UDim2.fromScale(1, hp)
 
-                  -- position HP text beside health bar
-                  e.HP.Position = UDim2.fromOffset(reservedLeft - barW - gap + 6, -2)
+                  -- position HP text perfectly beside health bar
+                  e.HP.AnchorPoint = Vector2.new(0, 0)
+                  e.HP.Size = UDim2.fromOffset(40, 14)
+                  e.HP.Position = UDim2.fromOffset(reservedLeft - barW - gap + 12, 2)
+                  e.HP.TextXAlignment = Enum.TextXAlignment.Left
+                  e.HP.TextYAlignment = Enum.TextYAlignment.Top
   
                   e.HealthGradient.Color = ColorSequence.new({
                       ColorSequenceKeypoint.new(0, flags[class .. 'HealthColor1'].Color),
