@@ -2877,6 +2877,11 @@ Library.ModeratorList = function(self)
         Items["ModList"].Instance.Visible = Bool
     end
 
+    -- NEW: Inverts current visibility to allow direct UI toggling
+    function ModList:Toggle()
+        Items["ModList"].Instance.Visible = not Items["ModList"].Instance.Visible
+    end
+
     function ModList:GetPosition()
         local p = Items["ModList"].Instance.Position
         return {
