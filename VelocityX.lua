@@ -2780,142 +2780,229 @@ Library.KeybindList = function(self)
 end
 									
 Library.ModeratorList = function(self)
-
     local ModList = {}
     local Moderators = {}
+    local UserButtons = {}
+    local StartTime = os.time()
 
     local Items = {} do
+        -- Main Container Window
         Items["ModList"] = Instances:Create("Frame", {
             Parent = Library.Holder.Instance,
             Name = "__ModeratorList",
             AnchorPoint = Vector2New(0, 0.5),
-            Position = UDim2New(1, -220, 0.5, 0),
+            Position = UDim2New(1, -290, 0, 80),
             BorderSizePixel = 0,
-            Size = UDim2New(0, 200, 0, 0),
-            AutomaticSize = Enum.AutomaticSize.Y,
-            BackgroundColor3 = FromRGB(24, 28, 36)
+            Size = UDim2New(0, 270, 0, 180),
+            BackgroundColor3 = FromRGB(12, 12, 12)
         })
         Items["ModList"]:AddToTheme({BackgroundColor3 = "Background 2"})
         Items["ModList"]:MakeDraggable()
-
         Items["ModList"].Instance.ClipsDescendants = false
 
+        -- Top Bar Drag Handle
         Items["TopBar"] = Instances:Create("Frame", {
             Parent = Items["ModList"].Instance,
-            Position = UDim2New(0, -9, 0, -9),
-            Size = UDim2New(1, 18, 0, 3),
+            Position = UDim2New(0, 0, 0, 0),
+            Size = UDim2New(1, 0, 0, 35),
             BorderSizePixel = 0,
-            BackgroundColor3 = FromRGB(0,170,255)
+            BackgroundColor3 = FromRGB(18, 18, 18)
         })
-
         Items["TopBar"].Instance.ZIndex = 60
 
-        local sg = Items["ModList"].Instance:FindFirstAncestorOfClass("ScreenGui")
-        if sg then
-            sg.ZIndexBehavior = Enum.ZIndexBehavior.Global
-        end
-
-        Items["ModList"].Instance.ZIndex = 50
-
-        Instances:Create("UIPadding", {
-            Parent = Items["ModList"].Instance,
-            PaddingTop = UDimNew(0,9),
-            PaddingBottom = UDimNew(0,9),
-            PaddingRight = UDimNew(0,9),
-            PaddingLeft = UDimNew(0,9)
+        -- Status Dot
+        Items["StatusDot"] = Instances:Create("Frame", {
+            Parent = Items["TopBar"].Instance,
+            Position = UDim2New(0, 12, 0, 13),
+            Size = UDim2New(0, 8, 0, 8),
+            BorderSizePixel = 0,
+            BackgroundColor3 = FromRGB(0, 200, 100)
         })
+        Items["StatusDot"].Instance.ZIndex = 61
+        Instances:Create("UICorner", {Parent = Items["StatusDot"].Instance, CornerRadius = UDimNew(1, 0)})
+        Instances:Create("UICorner", {Parent = Items["TopBar"].Instance, CornerRadius = UDimNew(0, 8)})
 
+        -- Title
         Items["Title"] = Instances:Create("TextLabel", {
-            Parent = Items["ModList"].Instance,
+            Parent = Items["TopBar"].Instance,
             FontFace = Library.Font,
-            TextColor3 = FromRGB(255,255,255),
-            Text = "Moderators",
+            TextColor3 = FromRGB(255, 255, 255),
+            Text = "Staff List",
             BackgroundTransparency = 1,
             TextXAlignment = Enum.TextXAlignment.Left,
-            Size = UDim2New(0,150,0,15),
-            TextSize = 14
+            Position = UDim2New(0, 28, 0, 0),
+            Size = UDim2New(0, 70, 1, 0),
+            TextSize = 13
         })
-        Items["Title"]:AddToTheme({TextColor3 = "Text"})
+        Items["Title"].Instance.ZIndex = 61
 
-        Items["Liner2"] = Instances:Create("Frame", {
-            Parent = Items["ModList"].Instance,
-            Position = UDim2New(0,0,0,21),
-            Size = UDim2New(1,0,0,1),
-            BorderSizePixel = 0,
-            BackgroundColor3 = FromRGB(46,52,61)
+        -- Player Count Label
+        Items["PlayerCount"] = Instances:Create("TextLabel", {
+            Parent = Items["TopBar"].Instance,
+            FontFace = Library.Font,
+            TextColor3 = FromRGB(255, 255, 255),
+            Text = "[0/0]",
+            BackgroundTransparency = 1,
+            TextXAlignment = Enum.TextXAlignment.Center,
+            Position = UDim2New(0, 92, 0, 0),
+            Size = UDim2New(0, 75, 1, 0),
+            TextSize = 13
         })
-        Items["Liner2"]:AddToTheme({BackgroundColor3 = "Border"})
+        Items["PlayerCount"].Instance.ZIndex = 61
 
-        Items["Content"] = Instances:Create("Frame", {
+        -- Session Timer Label
+        Items["Timer"] = Instances:Create("TextLabel", {
+            Parent = Items["TopBar"].Instance,
+            FontFace = Library.Font,
+            TextColor3 = FromRGB(200, 200, 200),
+            Text = "00:00:00",
+            BackgroundTransparency = 1,
+            TextXAlignment = Enum.TextXAlignment.Center,
+            Position = UDim2New(0, 168, 0, 0),
+            Size = UDim2New(0, 65, 1, 0),
+            TextSize = 13
+        })
+        Items["Timer"].Instance.ZIndex = 61
+
+        -- Toggle Button
+        Items["ProfileBtn"] = Instances:Create("TextButton", {
+            Parent = Items["TopBar"].Instance,
+            Position = UDim2New(1, -32, 0, 5),
+            Size = UDim2New(0, 24, 0, 24),
+            BackgroundTransparency = 1,
+            Text = ""
+        })
+        Items["ProfileBtn"].Instance.ZIndex = 62
+
+        local headIcon = Instances:Create("Frame", {
+            Parent = Items["ProfileBtn"].Instance,
+            Position = UDim2New(0, 7, 0, 2),
+            Size = UDim2New(0, 10, 0, 10),
+            BackgroundColor3 = FromRGB(220, 220, 220)
+        })
+        headIcon.Instance.ZIndex = 63
+        Instances:Create("UICorner", {Parent = headIcon.Instance, CornerRadius = UDimNew(1, 0)})
+
+        local torsoIcon = Instances:Create("Frame", {
+            Parent = Items["ProfileBtn"].Instance,
+            Position = UDim2New(0, 3, 0, 13),
+            Size = UDim2New(0, 18, 0, 9),
+            BackgroundColor3 = FromRGB(220, 220, 220)
+        })
+        torsoIcon.Instance.ZIndex = 63
+        Instances:Create("UICorner", {Parent = torsoIcon.Instance, CornerRadius = UDimNew(0, 4)})
+
+        -- Content Frame
+        Items["Content"] = Instances:Create("ScrollingFrame", {
             Parent = Items["ModList"].Instance,
             BackgroundTransparency = 1,
-            Position = UDim2New(0,0,0,28),
-            BorderSizePixel = 0,
-            Size = UDim2New(1,0,0,0),
-            AutomaticSize = Enum.AutomaticSize.Y
+            Position = UDim2New(0, 10, 0, 40),
+            Size = UDim2New(1, -25, 1, -45),
+            CanvasSize = UDim2New(0, 0, 0, 0),
+            AutomaticCanvasSize = Enum.AutomaticSize.Y
         })
-
-        Items["Title"].Instance.ZIndex = 51
-        Items["Liner2"].Instance.ZIndex = 51
+        Items["Content"].Instance.ScrollBarThickness = 10
+        Items["Content"].Instance.ScrollBarImageColor3 = Color3.fromRGB(100, 100, 100)
         Items["Content"].Instance.ZIndex = 51
 
         Instances:Create("UIListLayout", {
             Parent = Items["Content"].Instance,
-            Padding = UDimNew(0,4),
+            Padding = UDimNew(0, 5),
             SortOrder = Enum.SortOrder.LayoutOrder
         })
 
-        Instances:Create("UIStroke", {
+        -- Secondary User Panel Frame
+        Items["UserPanel"] = Instances:Create("Frame", {
+            Parent = Library.Holder.Instance,
+            Name = "__ServerUserPanel",
+            Size = UDim2New(0, 360, 0, 260),
+            Position = UDim2New(1, -660, 0, 80),
+            BackgroundColor3 = FromRGB(15, 15, 15),
+            BorderSizePixel = 0
+        })
+        Items["UserPanel"].Instance.Visible = false
+        Items["UserPanel"].Instance.Active = true
+        Instances:Create("UICorner", {Parent = Items["UserPanel"].Instance, CornerRadius = UDimNew(0, 8)})
+
+        local userTopBar = Instances:Create("Frame", {
+            Parent = Items["UserPanel"].Instance,
+            Size = UDim2New(1, 0, 0, 35),
+            BackgroundColor3 = FromRGB(22, 22, 22)
+        })
+        Instances:Create("UICorner", {Parent = userTopBar.Instance, CornerRadius = UDimNew(0, 8)})
+
+        local userTitle = Instances:Create("TextLabel", {
+            Parent = userTopBar.Instance,
+            Position = UDim2New(0, 12, 0, 0),
+            Size = UDim2New(1, -20, 1, 0),
+            BackgroundTransparency = 1,
+            Text = "Server Users (Click to Copy Profile)",
+            TextColor3 = FromRGB(255, 255, 255),
+            TextSize = 12,
+            TextXAlignment = Enum.TextXAlignment.Left
+        })
+
+        Items["UserContent"] = Instances:Create("ScrollingFrame", {
+            Parent = Items["UserPanel"].Instance,
+            Position = UDim2New(0, 10, 0, 40),
+            Size = UDim2New(1, -25, 1, -45),
+            BackgroundTransparency = 1,
+            CanvasSize = UDim2New(0, 0, 0, 0),
+            AutomaticCanvasSize = Enum.AutomaticSize.Y
+        })
+        Items["UserContent"].Instance.ScrollBarThickness = 10
+        Items["UserContent"].Instance.ScrollBarImageColor3 = Color3.fromRGB(100, 100, 100)
+
+        Instances:Create("UIListLayout", {
+            Parent = Items["UserContent"].Instance,
+            Padding = UDimNew(0, 5)
+        })
+
+        Instances:Create("UICorner", {
             Parent = Items["ModList"].Instance,
-            Color = FromRGB(46,52,61),
-            LineJoinMode = Enum.LineJoinMode.Miter,
-            ApplyStrokeMode = Enum.ApplyStrokeMode.Border
-        }):AddToTheme({Color = "Border"})
+            CornerRadius = UDimNew(0, 8)
+        })
     end
 
+    -- Clock tick handling loop
+    task.spawn(function()
+        while task.wait(1) do
+            local elapsed = os.time() - StartTime
+            local hours = math.floor(elapsed / 3600)
+            local minutes = math.floor((elapsed % 3600) / 60)
+            local seconds = elapsed % 60
+            Items["Timer"].Instance.Text = string.format("%02d:%02d:%02d", hours, minutes, seconds)
+        end
+    end)
+
+    -- Toggle operation connection
+    Items["ProfileBtn"].Instance.MouseButton1Click:Connect(function()
+        Items["UserPanel"].Instance.Visible = not Items["UserPanel"].Instance.Visible
+        if Items["UserPanel"].Instance.Visible then
+            local mainPos = Items["ModList"].Instance.Position
+            Items["UserPanel"].Instance.Position = UDim2.new(mainPos.X.Scale, mainPos.X.Offset - 370, mainPos.Y.Scale, mainPos.Y.Offset)
+        end
+    end)
+
+    -- API Functions
     function ModList:SetVisibility(Bool)
         Items["ModList"].Instance.Visible = Bool
+        if not Bool then Items["UserPanel"].Instance.Visible = false end
     end
 
-    -- NEW: Inverts current visibility to allow direct UI toggling
     function ModList:Toggle()
         Items["ModList"].Instance.Visible = not Items["ModList"].Instance.Visible
-    end
-
-    function ModList:GetPosition()
-        local p = Items["ModList"].Instance.Position
-        return {
-            XScale = p.X.Scale,
-            XOffset = p.X.Offset,
-            YScale = p.Y.Scale,
-            YOffset = p.Y.Offset
-        }
-    end
-
-    function ModList:SetPosition(Pos)
-        if not Pos then
-            return
-        end
-
-        Items["ModList"].Instance.Position = UDim2.new(
-            Pos.XScale or 0,
-            Pos.XOffset or 0,
-            Pos.YScale or 0,
-            Pos.YOffset or 0
-        )
+        if not Items["ModList"].Instance.Visible then Items["UserPanel"].Instance.Visible = false end
     end
 
     function ModList:add_mod(UserId, Username, Role)
-        if Moderators[UserId] then
-            ModList:remove_mod(UserId)
-        end
-
+        if Moderators[UserId] then ModList:remove_mod(UserId) end
         Role = Role or "Moderator"
 
         local ModFrame = Instances:Create("Frame", {
             Parent = Items["Content"].Instance,
             BackgroundTransparency = 1,
-            Size = UDim2New(1,0,0,15),
+            Size = UDim2New(1, 0, 0, 28),
             BorderSizePixel = 0
         })
 
@@ -2923,32 +3010,17 @@ Library.ModeratorList = function(self)
             Parent = ModFrame.Instance,
             FontFace = Library.Font,
             RichText = true,
-            TextColor3 = FromRGB(255,255,255),
+            TextColor3 = FromRGB(255, 255, 255),
             BackgroundTransparency = 1,
             TextXAlignment = Enum.TextXAlignment.Left,
-            TextSize = 14,
-            Size = UDim2New(1,0,0,15),
-            Text = ""
+            Size = UDim2New(1, 0, 1, 0),
+            Text = string.format("<font color='#00aaff' size='16'>%s</font> <font color='#ffffff' size='13'>(@%s)</font> <font color='#ffaa00' size='16'> %s</font>", Username, Username, Role)
         })
-
-        ModFrame.Instance.ZIndex = 52
         Line.Instance.ZIndex = 53
-        Line.Instance.Visible = true
-        Line.Instance.TextTransparency = 0
 
-        Line.Instance.Text = string.format(
-            '<font color="#4DA6FF">%s</font>  <font color="#B9B9B9">%s</font>',
-            tostring(Username),
-            tostring(Role)
-        )
-
-        Moderators[UserId] = {
-            Frame = ModFrame,
-            Username = Username,
-            Role = Role,
-            Label = Line
-        }
-
+        Moderators[UserId] = { Frame = ModFrame, Label = Line }
+        local count = 0 for _ in pairs(Moderators) do count += 1 end
+        Items["StatusDot"].Instance.BackgroundColor3 = (count > 0) and Color3.fromRGB(255, 50, 50) or Color3.fromRGB(0, 200, 100)
         return Moderators[UserId]
     end
 
@@ -2958,22 +3030,57 @@ Library.ModeratorList = function(self)
             ModData.Frame:Clean()
             Moderators[UserId] = nil
         end
+        local count = 0 for _ in pairs(Moderators) do count += 1 end
+        Items["StatusDot"].Instance.BackgroundColor3 = (count > 0) and Color3.fromRGB(255, 50, 50) or Color3.fromRGB(0, 200, 100)
     end
 
-    function ModList:Get()
-        local ModTable = {}
-        for UserId, Data in pairs(Moderators) do
-            table.insert(ModTable, {
-                userid = UserId,
-                username = Data.Username,
-                role = Data.Role
-            })
+    function ModList:add_server_user(player)
+        if UserButtons[player.UserId] then return end
+        Items["PlayerCount"].Instance.Text = string.format("[%d/%d]", #game:GetService("Players"):GetPlayers(), game:GetService("Players").MaxPlayers)
+
+        local btn = Instances:Create("TextButton", {
+            Parent = Items["UserContent"].Instance,
+            Size = UDim2New(1, 0, 0, 28),
+            BackgroundColor3 = FromRGB(22, 22, 22),
+            BorderSizePixel = 0,
+            Text = ""
+        })
+        Instances:Create("UICorner", {Parent = btn.Instance, CornerRadius = UDimNew(0, 4)})
+
+        local txt = Instances:Create("TextLabel", {
+            Parent = btn.Instance,
+            Size = UDim2New(1, -10, 1, 0),
+            Position = UDim2New(0, 8, 0, 0),
+            BackgroundTransparency = 1,
+            RichText = true,
+            Text = string.format("<font color='#00aaff'>%s</font> <font color='#ffffff'> (@%s) | ID: %d</font>", player.DisplayName, player.Name, player.UserId),
+            TextColor3 = FromRGB(255, 255, 255),
+            TextSize = 13,
+            TextXAlignment = Enum.TextXAlignment.Left
+        })
+
+        btn.Instance.MouseButton1Click:Connect(function()
+            if setclipboard then
+                setclipboard("https://www.roblox.com/users/" .. player.UserId .. "/profile")
+                local old = txt.Instance.Text
+                txt.Instance.Text = "<font color='#55ff55'>Copied Profile Link!</font>"
+                task.delay(1.5, function() txt.Instance.Text = old end)
+            end
+        end)
+
+        UserButtons[player.UserId] = btn
+    end
+
+    function ModList:remove_server_user(player)
+        Items["PlayerCount"].Instance.Text = string.format("[%d/%d]", #game:GetService("Players"):GetPlayers(), game:GetService("Players").MaxPlayers)
+        if UserButtons[player.UserId] then
+            UserButtons[player.UserId]:Clean()
+            UserButtons[player.UserId] = nil
         end
-        return ModTable
     end
 
+    Items["PlayerCount"].Instance.Text = string.format("[%d/%d]", #game:GetService("Players"):GetPlayers(), game:GetService("Players").MaxPlayers)
     Library.ModeratorListInstance = ModList
-
     return ModList
 end
 
