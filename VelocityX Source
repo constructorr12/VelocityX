@@ -55,7 +55,7 @@ local TweenService = game:GetService("TweenService")
 
 local Library = loadstring(game:HttpGet("https://raw.githubusercontent.com/LunarSync1515/VelocityX/refs/heads/main/VelocityX.lua"))()
 
-Library:Notification("Loading Bypass", 4,5)
+Library:Notification("Loading Bypass", 4, 5)
 task.wait(4.6)
 Library:Notification("✓ Bypass Loaded Successfully", 4.5)
 
@@ -75,25 +75,14 @@ Library.PlayerListInstance = MyPlayerList
 Library.WatermarkInstance = Watermark
 Library.TargetHudInstance = MyTargetHud
 
+-- Default UI States
 MyModList:SetVisibility(false)
 MyTargetHud:SetVisibility(false)
 
-local Players = game:GetService("Players")
-local CoreGui = game:GetService("CoreGui")
-
---// MODERATOR STEALTH MONITOR
-if not game:IsLoaded() then game.Loaded:Wait() end
-
-local Players = game:GetService("Players")
-local UserInputService = game:GetService("UserInputService")
-
-local lp = Players.LocalPlayer
-
---// CONFIGURATION
+--// DETECTOR CONFIGURATION
 local GROUP_ID = 1154360
 local MODERATOR_RANK = 15
 
--- Manually tracked people by UserId
 local SPECIAL_IDS = {
     [2229169589] = "Trial Mod", -- fearedbyvamp
     [4243907215] = "Trial Mod", -- AaronElagant
@@ -110,344 +99,47 @@ local SPECIAL_IDS = {
     [979624578] = "Trial Mod",  -- B_BEAMO/Retailly
 }
 
---// UI SETUP
-local target = (gethui and gethui()) or game:GetService("CoreGui"):FindFirstChild("RobloxGui")
-local sg = Instance.new("ScreenGui", target)
-sg.Name = "ModMonitor_Fixed"
-
-local main = Instance.new("Frame", sg)
-main.Size = UDim2.new(0, 270, 0, 180) 
-main.Position = UDim2.new(1, -290, 0, 80)
-main.BackgroundColor3 = Color3.fromRGB(12, 12, 12)
-main.BorderSizePixel = 0
-main.Active = true
-Instance.new("UICorner", main).CornerRadius = UDim.new(0, 8)
-
---// TOP BAR (Drag Handle)
-local topBar = Instance.new("Frame", main)
-topBar.Size = UDim2.new(1, 0, 0, 35)
-topBar.BackgroundColor3 = Color3.fromRGB(18, 18, 18)
-topBar.ZIndex = 5
-Instance.new("UICorner", topBar).CornerRadius = UDim.new(0, 8)
-
-local statusDot = Instance.new("Frame", topBar)
-statusDot.Size = UDim2.new(0, 8, 0, 8)
-statusDot.Position = UDim2.new(0, 12, 0, 13)
-statusDot.BackgroundColor3 = Color3.fromRGB(0, 200, 100)
-statusDot.ZIndex = 6
-Instance.new("UICorner", statusDot).CornerRadius = UDim.new(1, 0)
-
-local title = Instance.new("TextLabel", topBar)
-title.Size = UDim2.new(0, 70, 1, 0)
-title.Position = UDim2.new(0, 28, 0, 0)
-title.BackgroundTransparency = 1
-title.Text = "Staff List"
-title.TextColor3 = Color3.fromRGB(255, 255, 255)
-title.Font = Enum.Font.GothamBold
-title.TextSize = 13
-title.TextXAlignment = Enum.TextXAlignment.Left
-title.ZIndex = 6
-
---// PLAYER COUNT LABEL
-local playerCountLabel = Instance.new("TextLabel", topBar)
-playerCountLabel.Size = UDim2.new(0, 75, 1, 0)
-playerCountLabel.Position = UDim2.new(0, 92, 0, 0)
-playerCountLabel.BackgroundTransparency = 1
-playerCountLabel.Text = "[0/0]"
-playerCountLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
-playerCountLabel.Font = Enum.Font.Gotham
-playerCountLabel.TextSize = 13
-playerCountLabel.TextXAlignment = Enum.TextXAlignment.Center
-playerCountLabel.ZIndex = 6
-
---// SESSION TIMER LABEL
-local timerLabel = Instance.new("TextLabel", topBar)
-timerLabel.Size = UDim2.new(0, 65, 1, 0)
-timerLabel.Position = UDim2.new(0, 168, 0, 0)
-timerLabel.BackgroundTransparency = 1
-timerLabel.Text = "00:00:00"
-timerLabel.TextColor3 = Color3.fromRGB(200, 200, 200)
-timerLabel.Font = Enum.Font.GothamSemibold
-timerLabel.TextSize = 13
-timerLabel.TextXAlignment = Enum.TextXAlignment.Center
-timerLabel.ZIndex = 6
-
---// PROFILE MENU TOGGLE BUTTON
-local profileBtn = Instance.new("TextButton", topBar)
-profileBtn.Size = UDim2.new(0, 24, 0, 24)
-profileBtn.Position = UDim2.new(1, -32, 0, 5)
-profileBtn.BackgroundTransparency = 1
-profileBtn.Text = ""
-profileBtn.ZIndex = 7
-
-local headIcon = Instance.new("Frame", profileBtn)
-headIcon.Size = UDim2.new(0, 10, 0, 10)
-headIcon.Position = UDim2.new(0, 7, 0, 2)
-headIcon.BackgroundColor3 = Color3.fromRGB(220, 220, 220)
-headIcon.ZIndex = 8
-Instance.new("UICorner", headIcon).CornerRadius = UDim.new(1, 0)
-
-local torsoIcon = Instance.new("Frame", profileBtn)
-torsoIcon.Size = UDim2.new(0, 18, 0, 9)
-torsoIcon.Position = UDim2.new(0, 3, 0, 13)
-torsoIcon.BackgroundColor3 = Color3.fromRGB(220, 220, 220)
-torsoIcon.ZIndex = 8
-Instance.new("UICorner", torsoIcon).CornerRadius = UDim.new(0, 4)
-
---// CONTENT AREA (STAFF LIST)
-local contentFrame = Instance.new("ScrollingFrame", main)
-contentFrame.Size = UDim2.new(1, -25, 1, -45)
-contentFrame.Position = UDim2.new(0, 10, 0, 40)
-contentFrame.BackgroundTransparency = 1
-contentFrame.CanvasSize = UDim2.new(0, 0, 0, 0)
-contentFrame.AutomaticCanvasSize = Enum.AutomaticSize.Y
-contentFrame.ScrollBarThickness = 10 
-contentFrame.ScrollBarImageColor3 = Color3.fromRGB(100, 100, 100)
-
-local layout = Instance.new("UIListLayout", contentFrame)
-layout.Padding = UDim.new(0, 5)
-
---// SECOND PANEL: SERVER USERS LIST
-local userPanel = Instance.new("Frame", sg)
-userPanel.Size = UDim2.new(0, 360, 0, 260) 
-userPanel.Position = UDim2.new(main.Position.X.Scale, main.Position.X.Offset - 370, main.Position.Y.Scale, main.Position.Y.Offset) 
-userPanel.BackgroundColor3 = Color3.fromRGB(15, 15, 15)
-userPanel.BorderSizePixel = 0
-userPanel.Visible = false
-userPanel.Active = true
-Instance.new("UICorner", userPanel).CornerRadius = UDim.new(0, 8)
-
-local userTopBar = Instance.new("Frame", userPanel)
-userTopBar.Size = UDim2.new(1, 0, 0, 35)
-userTopBar.BackgroundColor3 = Color3.fromRGB(22, 22, 22)
-Instance.new("UICorner", userTopBar).CornerRadius = UDim.new(0, 8)
-
-local userTitle = Instance.new("TextLabel", userTopBar)
-userTitle.Size = UDim2.new(1, -20, 1, 0)
-userTitle.Position = UDim2.new(0, 12, 0, 0)
-userTitle.BackgroundTransparency = 1
-userTitle.Text = "Server Users (Click to Copy Profile)"
-userTitle.TextColor3 = Color3.fromRGB(255, 255, 255)
-userTitle.Font = Enum.Font.GothamBold
-userTitle.TextSize = 12
-userTitle.TextXAlignment = Enum.TextXAlignment.Left
-userTitle.ZIndex = 6
-
-local userContentFrame = Instance.new("ScrollingFrame", userPanel)
-userContentFrame.Size = UDim2.new(1, -25, 1, -45)
-userContentFrame.Position = UDim2.new(0, 10, 0, 40)
-userContentFrame.BackgroundTransparency = 1
-userContentFrame.CanvasSize = UDim2.new(0, 0, 0, 0)
-userContentFrame.AutomaticCanvasSize = Enum.AutomaticSize.Y
-userContentFrame.ScrollBarThickness = 10
-userContentFrame.ScrollBarImageColor3 = Color3.fromRGB(100, 100, 100)
-
-local userLayout = Instance.new("UIListLayout", userContentFrame)
-userLayout.Padding = UDim.new(0, 5)
-
---// LOGIC
-local activeMods = {}
-local userButtons = {}
-local startTime = os.time()
-
-local function updateStatus()
-    local count = 0
-    for _ in pairs(activeMods) do count += 1 end
-    statusDot.BackgroundColor3 = (count > 0) and Color3.fromRGB(255, 50, 50) or Color3.fromRGB(0, 200, 100)
-end
-
-local function updatePlayerCount()
-    local currentPlayers = #Players:GetPlayers()
-    local maxPlayers = Players.MaxPlayers
-    playerCountLabel.Text = string.format("[%d/%d]", currentPlayers, maxPlayers)
-end
-
--- TIMER LOOP
-task.spawn(function()
-    while task.wait(1) do
-        local elapsed = os.time() - startTime
-        local hours = math.floor(elapsed / 3600)
-        local minutes = math.floor((elapsed % 3600) / 60)
-        local seconds = elapsed % 60
-        timerLabel.Text = string.format("%02d:%02d:%02d", hours, minutes, seconds)
-    end
-end)
-
-local function createModEntry(player, tag)
-    if activeMods[player.UserId] then return end
-    
-    local entry = Instance.new("TextLabel")
-    entry.Size = UDim2.new(1, 0, 0, 28) 
-    entry.BackgroundTransparency = 1
-    entry.RichText = true
-    
-    entry.Text = string.format(
-        "<font color='#00aaff' size='16'>%s</font> <font color='#ffffff' size='13'>(@%s)</font> <font color='#ffaa00' size='16'> %s</font>", 
-        player.DisplayName, player.Name, tag
-    )
-    entry.TextColor3 = Color3.fromRGB(255, 255, 255)
-    entry.Font = Enum.Font.Gotham
-    entry.TextXAlignment = Enum.TextXAlignment.Left
-    entry.Parent = contentFrame
-    entry.ZIndex = 6
-    
-    activeMods[player.UserId] = entry
-    updateStatus()
-end
-
-local function removeModEntry(player)
-    if activeMods[player.UserId] then
-        activeMods[player.UserId]:Destroy()
-        activeMods[player.UserId] = nil
-        updateStatus()
-    end
-end
-
-local function addUserRegistryEntry(player)
-    if userButtons[player.UserId] then return end
-
-    local btn = Instance.new("TextButton")
-    btn.Size = UDim2.new(1, 0, 0, 28)
-    btn.BackgroundColor3 = Color3.fromRGB(22, 22, 22)
-    btn.BorderSizePixel = 0
-    btn.Text = ""
-    btn.AutoButtonColor = true
-    Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 4)
-
-    local txt = Instance.new("TextLabel", btn)
-    txt.Size = UDim2.new(1, -10, 1, 0)
-    txt.Position = UDim2.new(0, 8, 0, 0)
-    txt.BackgroundTransparency = 1
-    txt.RichText = true
-    
-    txt.Text = string.format(
-        "<font color='#00aaff'>%s</font> <font color='#ffffff'> (@%s) | ID: %d</font>", 
-        player.DisplayName, player.Name, player.UserId
-    )
-    txt.Font = Enum.Font.Gotham
-    txt.TextSize = 13
-    txt.TextColor3 = Color3.fromRGB(255, 255, 255)
-    txt.TextXAlignment = Enum.TextXAlignment.Left
-    txt.ZIndex = 6
-
-    btn.MouseButton1Click:Connect(function()
-        local profileUrl = "https://www.roblox.com/users/" .. player.UserId .. "/profile"
-        if setclipboard then
-            setclipboard(profileUrl)
-            local originalText = txt.Text
-            txt.Text = "<font color='#55ff55'>Copied Profile Link!</font>"
-            task.delay(1.5, function()
-                txt.Text = originalText
-            end)
-        else
-            txt.Text = "<font color='#ff5555'>Missing setclipboard</font>"
-        end
-    end)
-
-    btn.Parent = userContentFrame
-    userButtons[player.UserId] = btn
-end
-
-local function removeUserRegistryEntry(player)
-    if userButtons[player.UserId] then
-        userButtons[player.UserId]:Destroy()
-        userButtons[player.UserId] = nil
-    end
-end
-
+--// SCANNER ENGINE
 local function checkPlayer(player)
-    -- 1. CRITICAL THREAD SAFETY: Make sure player is still loaded in the game
     if not player or not player:IsDescendantOf(Players) then return end
 
-    -- Check manual list first
+    -- 1. Scan Special User ID Table
     local tag = SPECIAL_IDS[player.UserId]
     if tag then 
-        createModEntry(player, tag) 
+        MyModList:add_mod(player.UserId, player.Name, tag)
         return
     end
 
-    -- 2. SECURE API LOOKUP: Handle Group check safely via pcall
+    -- 2. Secure Group validation via pcall
     local groupSuccess, isInGroup = pcall(function()
         return player:IsInGroup(GROUP_ID)
     end)
 
     if not groupSuccess or not isInGroup then return end
-
-    -- Double check connection safety before doing a second lookup
     if not player:IsDescendantOf(Players) then return end
 
-    -- 3. SECURE API LOOKUP: Handle Rank lookup safely via pcall
+    -- 3. Secure Rank lookup validation via pcall
     local rankSuccess, rank = pcall(function()
         return player:GetRankInGroup(GROUP_ID)
     end)
 
     if rankSuccess and rank >= MODERATOR_RANK then
-        createModEntry(player, "Staff")
+        MyModList:add_mod(player.UserId, player.Name, "Staff")
     end
 end
 
---// TOGGLE EXTRA PANEL VISIBILITY
-profileBtn.MouseButton1Click:Connect(function()
-    userPanel.Visible = not userPanel.Visible
-    if userPanel.Visible then
-        userPanel.Position = UDim2.new(main.Position.X.Scale, main.Position.X.Offset - 370, main.Position.Y.Scale, main.Position.Y.Offset)
-    end
-end)
-
---// DRAGGING
-local dragToggle, dragStart, startPos
-topBar.InputBegan:Connect(function(input)
-    if input.UserInputType == Enum.UserInputType.MouseButton1 then 
-        dragToggle = true 
-        dragStart = input.Position 
-        startPos = main.Position 
-    end
-end)
-
-UserInputService.InputChanged:Connect(function(input)
-    if not dragToggle then return end 
-    
-    if input.UserInputType == Enum.UserInputType.MouseMovement then
-        local delta = input.Position - dragStart
-        local newX = startPos.X.Offset + delta.X
-        local newY = startPos.Y.Offset + delta.Y
-        
-        main.Position = UDim2.new(startPos.X.Scale, newX, startPos.Y.Scale, newY)
-        userPanel.Position = UDim2.new(startPos.X.Scale, newX - 370, startPos.Y.Scale, newY)
-    end
-end)
-
-UserInputService.InputEnded:Connect(function(input) 
-    if input.UserInputType == Enum.UserInputType.MouseButton1 then 
-        dragToggle = false 
-    end 
-end)
-
---// INITIALIZE
-updatePlayerCount()
-
--- Scan current server population safely
+--// INITIALIZE FLOW
 for _, p in ipairs(Players:GetPlayers()) do 
-    task.defer(function()
-        checkPlayer(p) 
-        addUserRegistryEntry(p)
-    end)
+    task.defer(checkPlayer, p)
 end
 
--- Safe tracking loops for incoming and outgoing connections
 Players.PlayerAdded:Connect(function(player)
-    task.defer(function()
-        updatePlayerCount()
-        checkPlayer(player)
-        addUserRegistryEntry(player)
-    end)
+    task.defer(checkPlayer, player)
 end)
 
 Players.PlayerRemoving:Connect(function(player)
     task.defer(function()
-        updatePlayerCount() 
-        removeModEntry(player)
-        removeUserRegistryEntry(player)
+        MyModList:remove_mod(player.UserId)
     end)
 end)
 
