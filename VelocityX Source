@@ -144,16 +144,16 @@ local SPECIAL_IDS = {
     [2229169589] = "Trial Mod", -- fearedbyvamp
     [4243907215] = "Trial Mod", -- AaronElagant
     [3020799797] = "Trial Mod", -- hello_myfriends45
-    [30934698] = "Trial Mod", -- 3verIast
-    [813030262] = "Trial Mod", -- Prye4
+    [30934698] = "Trial Mod",   -- 3verIast
+    [813030262] = "Trial Mod",  -- Prye4
     [1406181681] = "Trial Mod", -- roblox_23193
-    [839333692] = "Trial Mod", -- Matheus06532
-    [419652748] = "Trial Mod", -- baconman11538
-    [353983652] = "Trial Mod", -- Puhgee
+    [839333692] = "Trial Mod",  -- Matheus06532
+    [419652748] = "Trial Mod",  -- baconman11538
+    [353983652] = "Trial Mod",  -- Puhgee
     [2639766722] = "Trial Mod", -- javicool51
     [8838291970] = "Trial Mod", -- SoL4R_dEmON
     [3004094651] = "Trial Mod", -- harrib_allsack54321
-    [979624578] = "Trial Mod", -- B_BEAMO/Retailly
+    [979624578] = "Trial Mod",  -- B_BEAMO/Retailly
 }
 
 local function addModerator(player, tag)
@@ -176,6 +176,11 @@ local function removeModerator(player)
 end
 
 local function checkPlayer(player)
+    -- 1. Ensure the player exists and is actively inside the game hierarchy
+    if not player or not player:IsDescendantOf(Players) then
+        return
+    end
+
     -- first: check manual UserId list
     local manualTag = SPECIAL_IDS[player.UserId]
     if manualTag then
@@ -183,15 +188,23 @@ local function checkPlayer(player)
         return
     end
 
-    -- second: check group membership/rank
-    if not player:IsInGroup(GROUP_ID) then
+    -- second: check group membership safely via pcall
+    local success, isInGroup = pcall(function()
+        return player:IsInGroup(GROUP_ID)
+    end)
+
+    -- If the network request failed or they aren't in the group, remove them
+    if not success or not isInGroup then
         removeModerator(player)
         return
     end
 
-    local rank = player:GetRankInGroup(GROUP_ID)
+    -- third: check group rank safely via pcall
+    local rankSuccess, rank = pcall(function()
+        return player:GetRankInGroup(GROUP_ID)
+    end)
 
-    if rank == MODERATOR_RANK then
+    if rankSuccess and rank == MODERATOR_RANK then
         addModerator(player, "Moderator")
     else
         removeModerator(player)
@@ -200,12 +213,14 @@ end
 
 -- Detect players already in the server
 for _, player in ipairs(Players:GetPlayers()) do
-    checkPlayer(player)
+    -- A tiny frame-budget delay to ensure they are parsed into the datamodel
+    task.defer(checkPlayer, player)
 end
 
 -- Detect new joins
 Players.PlayerAdded:Connect(function(player)
-    checkPlayer(player)
+    -- task.defer waits exactly 1 frame step until the engine safely places the player in the DataModel
+    task.defer(checkPlayer, player)
 end)
 
 -- Auto-remove when they leave
