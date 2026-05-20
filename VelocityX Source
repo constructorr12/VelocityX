@@ -1334,7 +1334,7 @@ Library.Targeting = Targeting
                   e.HealthFill.Size = UDim2.fromScale(1, hp)
 
                   -- position HP text beside health bar
-                  e.HP.Position = UDim2.fromOffset(reservedLeft - barW - gap - 24, size.Y + 2)
+                  e.HP.Position = UDim2.fromOffset(reservedLeft - barW - gap + 6, -2)
   
                   e.HealthGradient.Color = ColorSequence.new({
                       ColorSequenceKeypoint.new(0, flags[class .. 'HealthColor1'].Color),
